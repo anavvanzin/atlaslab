@@ -1,0 +1,21 @@
+{
+  "name": "atlaslab",
+  "version": "1.0.0",
+  "description": "Companion site for the ICONOCRACIA corpus — Atlas and Atlas Lab surfaces.",
+  "type": "commonjs",
+  "scripts": {
+    "build:corpus": "node scripts/build-corpus-data.js",
+    "build": "npm run build:corpus && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist"
+  },
+  "keywords": ["iconocracy", "legal-iconography", "atlas", "corpus", "static-site"],
+  "author": "Ana Vanzin",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "optionalDependencies": {
+    "ajv": "^8.12.0"
+  }
+}

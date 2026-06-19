@@ -1,5 +1,7 @@
 // Atlas-site — theme engine, shared atoms, and section components.
 (function () {
+// Fallback data reference.  App.jsx passes real corpus into section props;
+// legacy inline data.js remains available for non-corpus sections.
 const D = window.AtlasData;
 
 const REG = { FUNDACIONAL:"var(--c-fund)", NORMATIVO:"var(--c-norm)", MILITAR:"var(--c-mil)", CONTRA_ALEGORIA:"var(--c-accent)" };
@@ -61,6 +63,37 @@ function Plate({ it, label }) {
   );
 }
 
+function PlateCard({ it, idx, onPresent }) {
+  return (
+    <div className="plate-card" style={{ position:"relative", animation: idx < 24 ? `plateIn .45s var(--ease-out) ${idx * .03}s both` : undefined }}>
+      <div className="plate-inner" style={{ position:"relative" }}>
+        <Plate it={it} />
+        <span style={{ position:"absolute", top:8, left:8, width:9, height:9, borderRadius:"50%", background:REG[it.regime] || REG["CONTRA_ALEGORIA"], boxShadow:"0 0 0 2px rgba(0,0,0,.25)" }} />
+        <div style={{ position:"absolute", top:8, right:8, zIndex:3, display:"flex", gap:6 }}>
+          {onPresent && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onPresent(it.id); }}
+              aria-label={`Apresentar ${it.title}`}
+              title="Apresentar"
+              style={{
+                width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(244,236,216,.55)",
+                background: "rgba(13,16,30,.55)", color: "#F4ECD8", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+              </svg>
+            </button>
+          )}
+          {window.CitationButton && <window.CitationButton item={it} compact />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Badge({ children, color }) {
   return <span className="mono" style={{ fontSize:9, letterSpacing:"1px", padding:"3px 9px", borderRadius:999, background:`color-mix(in srgb, ${color} 18%, transparent)`, color }}>{children}</span>;
 }
@@ -118,10 +151,11 @@ function Hero({ t }) {
   );
 }
 
-function Stats() {
+function Stats({ data }) {
+  const items = data || D.stats || [];
   return (
     <section style={{ padding:"0 40px calc(var(--pad-sec) * .6)", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"var(--gap)" }}>
-      {D.stats.map((s,i) => (
+      {items.map((s,i) => (
         <div key={i} style={{ position:"relative", background:"var(--c-panel)", border:"1px solid var(--c-border)", padding:"18px 18px 14px", backgroundImage:"var(--c-grain)", backgroundSize:"200px" }}>
           <span style={{ position:"absolute", top:0, left:0, right:0, height:2, background: i%2 ? "var(--c-accent)" : "var(--c-gold)" }} />
           <Cap>{s.l}</Cap>
@@ -186,16 +220,50 @@ function Anatomia() {
   );
 }
 
-function CorpusWall({ t }) {
+function CorpusWall({ t, corpus }) {
+  const items = corpus || D.corpus || [];
   const regs = ["FUNDACIONAL","NORMATIVO","MILITAR","CONTRA_ALEGORIA"];
+  const filterState = window.useFilters({ corpus: items });
+  const { filtered, domain, filters, toggle, setYear, clear, resultCount } = filterState;
+  const [filterOpen, setFilterOpen] = React.useState(false);
+  const [presentOpen, setPresentOpen] = React.useState(false);
+  const [presentStart, setPresentStart] = React.useState(0);
+  const [vw, setVw] = React.useState(typeof window !== "undefined" ? window.innerWidth : 1280);
+  React.useEffect(() => {
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const narrow = vw < 720;
+  const activeFilters = filters.regime.length + filters.country.length + filters.support.length + (filters.yearMin || filters.yearMax ? 1 : 0);
+
+  const openPresent = (id) => {
+    const idx = filtered.findIndex((it) => it.id === id);
+    setPresentStart(Math.max(0, idx));
+    setPresentOpen(true);
+  };
+
   return (
     <section id="corpus" style={{ padding:"var(--pad-sec) 40px", borderTop:"1px solid var(--c-border)" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", flexWrap:"wrap", gap:16 }}>
         <div>
-          <Cap>Corpus iconográfico · {D.corpus.length} placas em vitrine</Cap>
+          <Cap>Corpus iconográfico · {resultCount} de {items.length} placas</Cap>
           <h2 style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontSize:"var(--t-h1)", color:"var(--c-ink)", margin:"6px 0 0" }}>A parede de espécimes</h2>
         </div>
-        <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+          <button
+            type="button"
+            onClick={() => setFilterOpen((o) => !o)}
+            aria-expanded={filterOpen}
+            style={{
+              display:"inline-flex", alignItems:"center", gap:8, padding:"7px 12px", border:`1px solid ${filterOpen ? "var(--state-active)" : "var(--c-border)"}`,
+              borderRadius:999, background:filterOpen ? "rgba(138,95,168,.08)" : "var(--c-panel)", color:"var(--c-ink)", cursor:"pointer",
+              fontFamily:"var(--font-mono)", fontSize:10, letterSpacing:"1.5px", textTransform:"uppercase"
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+            Filtros {activeFilters > 0 && React.createElement("span", { style:{ background:"var(--state-active)", color:"var(--c-on-accent)", borderRadius:999, padding:"1px 6px", fontSize:9 } }, activeFilters)}
+          </button>
           {regs.map(r => (
             <span key={r} style={{ display:"flex", alignItems:"center", gap:6 }} className="mono">
               <span style={{ width:8, height:8, borderRadius:"50%", background:REG[r] }} />
@@ -205,13 +273,51 @@ function CorpusWall({ t }) {
         </div>
       </div>
       <DoubleRule style={{ margin:"18px 0 24px" }} />
-      <div style={{ display:"grid", gridTemplateColumns:`repeat(auto-fill,minmax(${corpusMin(t.density)},1fr))`, gap:"var(--gap)" }}>
-        {D.corpus.map(it => (
-          <div key={it.id} style={{ position:"relative" }}>
-            <Plate it={it} />
-            <span style={{ position:"absolute", top:8, left:8, width:9, height:9, borderRadius:"50%", background:REG[it.regime], boxShadow:"0 0 0 2px rgba(0,0,0,.25)" }} />
-          </div>
-        ))}
+      {presentOpen && window.PresentMode && React.createElement(window.PresentMode, {
+        items: filtered,
+        startIndex: presentStart,
+        onClose: () => setPresentOpen(false),
+      })}
+      <div style={{ display:"grid", gridTemplateColumns: narrow ? "1fr" : (filterOpen ? "minmax(260px, 320px) 1fr" : "1fr"), gap:"var(--gap)", alignItems:"start" }}>
+        {filterOpen && (
+          narrow ? (
+            <div style={{ position:"fixed", inset:0, zIndex:2147483639, background:"var(--c-ground)", overflowY:"auto", padding:"16px" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontSize:22, color:"var(--c-ink)" }}>Filtros</span>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(false)}
+                  aria-label="Fechar filtros"
+                  style={{ width:36, height:36, borderRadius:999, border:"1px solid var(--c-border)", background:"var(--c-panel)", color:"var(--c-ink)", cursor:"pointer", fontSize:18 }}
+                >×</button>
+              </div>
+              <window.FilterPanel
+                filters={filters}
+                domain={domain}
+                onToggle={toggle}
+                onSetYear={setYear}
+                onClear={clear}
+                resultCount={resultCount}
+                compact={true}
+              />
+            </div>
+          ) : (
+            <window.FilterPanel
+              filters={filters}
+              domain={domain}
+              onToggle={toggle}
+              onSetYear={setYear}
+              onClear={clear}
+              resultCount={resultCount}
+              compact={false}
+            />
+          )
+        )}
+        <div style={{ display:"grid", gridTemplateColumns:`repeat(auto-fill,minmax(${corpusMin(t.density)},1fr))`, gap:"var(--gap)", alignItems:"start" }}>
+          {filtered.map((it, idx) => (
+            <PlateCard key={it.id} it={it} idx={idx} onPresent={openPresent} />
+          ))}
+        </div>
       </div>
     </section>
   );
